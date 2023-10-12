@@ -1,0 +1,75 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+name : 3_tier_architecture
+
+trigger:
+ - none
+
+pool :
+ vmImage : windows-latest
+
+variables:
+- group: 3_tier_variable_group
+
+
+stages:
+- stage: Terraform_init_plan_apply
+  jobs:
+    - job: Terraform_init_plan_apply
+      steps:
+      - task: TerraformInstaller@0
+        inputs: 
+          terraformVersion: 'latest' 
+      - task: TerraformTaskV3@3
+        inputs:
+          provider: 'azurerm'
+          command: 'init'
+          workingDirectory: 'terraform'
+          backendServiceArm: '$(azure_service_connection)'
+          backendAzureRmResourceGroupName: '$(backend_resource_group_name)'
+          backendAzureRmStorageAccountName: '$(storage_account_name)'
+          backendAzureRmContainerName: '$(container_name)'
+          backendAzureRmKey: '$(backend_key)'
+        displayName: 'Terraform Init'
+      - task: TerraformTaskV3@3
+        inputs: 
+          provider: 'azurerm'
+          command: 'plan'
+          workingDirectory: 'terraform'
+          environmentServiceNameAzureRM: '$(azure_service_connection)'
+        displayName: 'Terraform Plan'
+      - task: TerraformTaskV3@3
+        inputs:
+          provider: 'azurerm' 
+          command: 'apply'
+          workingDirectory: 'terraform'
+          environmentServiceNameAzureRM: '$(azure_service_connection)'
+        displayName: 'Terraform Apply'
+        
+        
+- stage: Terraform_destroy
+  jobs:
+    - job: Terraform_destroy
+      steps:
+      - task: TerraformInstaller@0
+        inputs: 
+          terraformVersion: 'latest' 
+      - task: TerraformTaskV3@3
+        inputs:
+          provider: 'azurerm'
+          command: 'init'
+          workingDirectory: 'Terraform modules/terraform_exe'
+          backendServiceArm: 'subs_connection'
+          backendAzureRmResourceGroupName: 'terraformstorage-rg'
+          backendAzureRmStorageAccountName: 'terraformstorage00001'
+          backendAzureRmContainerName: 'tfstate'
+          backendAzureRmKey: 'terraform.tfstate'    
+      - task: TerraformTaskV3@3
+        inputs:
+          provider: 'azurerm'
+          command: 'destroy'
+          workingDirectory: 'Terraform modules/terraform_exe'
+          environmentServiceNameAzureRM: 'subs_connection'
